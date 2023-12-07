@@ -129,6 +129,22 @@ class HomePageResource(Resource):
 
 api.add_resource(HomePageResource, '/')
 
+class CheckUserResource(Resource):
+    def get(self):
+        if current_user.is_authenticated:
+            return jsonify({
+                'logged_in': True,
+                'user_id': current_user.id,
+                'user_type': current_user.type,
+                'username': current_user.username,
+                # Add any other details you might want to return
+            })
+        else:
+            return jsonify({'logged_in': False})
+
+# Add the CheckUser Resource to API
+api.add_resource(CheckUserResource, '/check_user')
+
 class LoginResource(Resource):
     def post(self):
         data = request.get_json()
