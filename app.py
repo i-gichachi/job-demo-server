@@ -25,9 +25,8 @@ CORS(app)
 api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
-login_manager = LoginManager()
-login_manager.init_app(app)
-
+login_manager = LoginManager(app)
+csrf = CSRFProtect(app)
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
