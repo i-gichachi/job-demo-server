@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, login_user
@@ -20,12 +21,13 @@ app.config['SECRET_KEY'] = b'\xfb\x9e\xf17\xe5\xfa7\xab\x03\xda=\xb2\xdbL\xd8\xc
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://gichachi:9614@localhost/testdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+CORS(app)
 api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
-csrf = CSRFProtect(app)
+#csrf = CSRFProtect(app)
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
