@@ -113,12 +113,6 @@ def create_user_notification(user):
 
     db.session.commit()
 
-class CsrfTokenResource(Resource):
-    def get(self):
-        return jsonify({'csrf_token': generate_csrf()})
-
-api.add_resource(CsrfTokenResource, '/csrf_token')
-
 class HomePageResource(Resource):
     def get(self):
         return {
