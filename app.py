@@ -18,7 +18,7 @@ import datetime
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = b'\xfb\x9e\xf17\xe5\xfa7\xab\x03\xda=\xb2\xdbL\xd8\xc7\xeb<\x7f/k\x14\x04=' 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://gichachi:9614@localhost:5432/testdb'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://gichachi:CglpoGJbYJqDlYok1MnkfHS9U3FyRfzP@dpg-clor1ah46foc73a37ot0-a.oregon-postgres.render.com/testingdb_v4xf'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 CORS(app)
@@ -27,7 +27,7 @@ db.init_app(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
-#csrf = CSRFProtect(app)
+csrf = CSRFProtect(app)
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
