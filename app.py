@@ -1,15 +1,12 @@
-from flask import Flask, request, jsonify, session, abort
+from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_login import LoginManager, login_user
-from flask_wtf.csrf import CSRFProtect, generate_csrf
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, DateField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Regexp
-from flask_login import current_user, login_required, logout_user
 from models import db, User, Jobseeker, Employer, JobPosting, Notification, ContactRequest, Admin
 import requests
 import base64
@@ -17,16 +14,16 @@ import datetime
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = b'\xfb\x9e\xf17\xe5\xfa7\xab\x03\xda=\xb2\xdbL\xd8\xc7\xeb<\x7f/k\x14\x04=' 
+app.config['SECRET_KEY'] = b'\x84^\xca\xaf\xca\x0e\xe6\xff\xbbw\x00\xfd\x8aN\xa6WS\x1d\x16`\xde\xb8W\xea'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://gichachi:CglpoGJbYJqDlYok1MnkfHS9U3FyRfzP@dpg-clor1ah46foc73a37ot0-a.oregon-postgres.render.com/testingdb_v4xf'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = b'\x84^\xca\xaf\xca\x0e\xe6\xff\xbbw\x00\xfd\x8aN\xa6WS\x1d\x16`\xde\xb8W\xea'
 
+jwt = JWTManager(app)
 CORS(app)
 api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
-login_manager = LoginManager(app)
-csrf = CSRFProtect(app)
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
@@ -65,10 +62,6 @@ def stk_push(phone_number, amount=1):
 
     response = requests.post(api_url, json=payload, headers=headers)
     return response.json()
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 class SignupForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -114,21 +107,6 @@ def create_user_notification(user):
 
     db.session.commit()
 
-class BaseResource(Resource):
-    def dispatch_request(self, *args, **kwargs):
-        protected_methods = ['POST', 'PUT', 'DELETE']
-        if request.method in protected_methods:
-            token = session.pop('_csrf_token', None)
-            if not token or token != request.headers.get('X-CSRFToken'):
-                abort(400)
-        return super().dispatch_request(*args, **kwargs)
-
-class CsrfTokenResource(Resource):
-    def get(self):
-        return jsonify({'csrf_token': generate_csrf()})
-    
-api.add_resource(CsrfTokenResource, '/csrf_token')
-
 class HomePageResource(Resource):
     def get(self):
         return {
@@ -138,15 +116,20 @@ class HomePageResource(Resource):
 api.add_resource(HomePageResource, '/')
 
 class CheckUserResource(Resource):
+    @jwt_required()
     def get(self):
-        if current_user.is_authenticated:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
+        if user:
             return jsonify({
                 'logged_in': True,
-                'user_id': current_user.id,
-                'user_type': current_user.type,
-                'username': current_user.username,
+                'user_id': user.id,
+                'user_type': user.type,
+                'username': user.username,
             })
         else:
+            # This case might not be necessary since @jwt_required() ensures a valid user
             return jsonify({'logged_in': False})
 
 # Add the CheckUser Resource to API
@@ -155,32 +138,33 @@ api.add_resource(CheckUserResource, '/check_user')
 class LoginResource(Resource):
     def post(self):
         data = request.get_json()
-        user_identifier = data.get('user_identifier') 
+        user_identifier = data.get('user_identifier')
         password = data.get('password')
 
-        user = User.query.filter((User.email == user_identifier) | 
-                                 (User.username == user_identifier) | 
+        user = User.query.filter((User.email == user_identifier) |
+                                 (User.username == user_identifier) |
                                  (User.phone_number == user_identifier)).first()
 
         if user and check_password_hash(user.password_hash, password):
-            login_user(user)
+            # Create JWT access token
+            access_token = create_access_token(identity=user.id)
             return jsonify({
-                'message': 'Logged in successfully', 
-                'user_id': user.id, 
+                'message': 'Logged in successfully',
+                'access_token': access_token,  # Send the JWT token to the client
+                'user_id': user.id,
                 'user_type': user.type,
-                'username': user.username  # Add this line
-            }) 
+                'username': user.username
+            })
         else:
             return {'message': 'Invalid credentials'}, 401
 
-# Add the Login Resource to API
 api.add_resource(LoginResource, '/login')
 
 class LogoutResource(Resource):
-    @login_required
+    @jwt_required()
     def post(self):
-        logout_user()
-        return {'message': 'Logged out successfully'}, 200
+        # JWT logout is handled client-side. Inform the client.
+        return {'message': 'Please discard your access token.'}, 200
 
 api.add_resource(LogoutResource, '/logout')
 
@@ -224,9 +208,11 @@ class SignupResource(Resource):
 api.add_resource(SignupResource, '/signup')
 
 class UserInfoResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
-        user = current_user
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
         if not user:
             return {'message': 'User not found'}, 404
 
@@ -248,18 +234,25 @@ class UserInfoResource(Resource):
 api.add_resource(UserInfoResource, '/user/info')
 
 class UpdateUserResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self):
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
+        if not user:
+            return {'message': 'User not found'}, 404
+
         form_data = request.get_json()
 
-        current_user.username = form_data.get('username', current_user.username)
-        current_user.email = form_data.get('email', current_user.email)
-        current_user.firstname = form_data.get('first_name', current_user.firstname)
-        current_user.secondname = form_data.get('second_name', current_user.secondname)
-        current_user.surname = form_data.get('surname', current_user.surname)
-        current_user.address = form_data.get('address', current_user.address)
-        current_user.phone_number = form_data.get('phone_number', current_user.phone_number)
-        current_user.gender = form_data.get('gender', current_user.gender)
+        user.username = form_data.get('username', user.username)
+        user.email = form_data.get('email', user.email)
+        user.firstname = form_data.get('first_name', user.firstname)
+        user.secondname = form_data.get('second_name', user.secondname)
+        user.surname = form_data.get('surname', user.surname)
+        user.address = form_data.get('address', user.address)
+        user.phone_number = form_data.get('phone_number', user.phone_number)
+        user.gender = form_data.get('gender', user.gender)
+        
         db.session.commit()
 
         return {'message': 'User information updated successfully'}, 200
@@ -267,14 +260,20 @@ class UpdateUserResource(Resource):
 api.add_resource(UpdateUserResource, '/user/update')
 
 class JobseekerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def post(self):
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
+        if not user:
+            return {'message': 'User not found'}, 404
+
         # Ensure the current user is a jobseeker
-        if current_user.type != 'jobseeker':
+        if user.type != 'jobseeker':
             return {'message': 'Access denied. Only jobseekers can create a profile.'}, 403
 
         # Check if the jobseeker profile for the current user already exists
-        jobseeker_profile = db.session.query(Jobseeker).filter_by(id=current_user.id).first()
+        jobseeker_profile = Jobseeker.query.filter_by(id=user.id).first()
         if jobseeker_profile:
             return {'message': 'Profile already exists. Use the update profile API to make changes.'}, 400
 
@@ -287,7 +286,7 @@ class JobseekerProfileResource(Resource):
 
         # Directly insert into the jobseekers table
         new_profile_data = {
-            'id': current_user.id,
+            'id': user.id,
             'resume': form_data['resume'],
             'profile_status': "Active",
             'availability': "Available",
@@ -304,10 +303,12 @@ class JobseekerProfileResource(Resource):
 api.add_resource(JobseekerProfileResource, '/jobseeker/profile')
 
 class GetJobseekerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self, jobseeker_id):
+        current_user_id = get_jwt_identity()
+        
         # Check if the current user is requesting their own profile
-        if current_user.id != jobseeker_id :  
+        if current_user_id != jobseeker_id:
             return {'message': 'Unauthorized access'}, 401
 
         jobseeker = Jobseeker.query.get(jobseeker_id)
@@ -321,7 +322,7 @@ class GetJobseekerProfileResource(Resource):
             'job_category': jobseeker.job_category,
             'salary_expectations': jobseeker.salary_expectations,
             'file_approval_status': jobseeker.file_approval_status,
-            'is_verified':jobseeker.is_verified
+            'is_verified': jobseeker.is_verified
         }
 
         return profile_data, 200
@@ -329,9 +330,16 @@ class GetJobseekerProfileResource(Resource):
 api.add_resource(GetJobseekerProfileResource, '/jobseeker/profile/<int:jobseeker_id>')
 
 class UpdateJobseekerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self, jobseeker_id):
-        if current_user.id != jobseeker_id and current_user.type != 'admin':
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is the jobseeker or an admin
+        if current_user_id != jobseeker_id and current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         form_data = request.get_json()
@@ -353,16 +361,22 @@ class UpdateJobseekerProfileResource(Resource):
 api.add_resource(UpdateJobseekerProfileResource, '/jobseeker/profile/update/<int:jobseeker_id>')
 
 class EmployerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def post(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
 
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized or invalid user'}, 401
 
         form_data = request.get_json()
 
         # Check if the employer profile for the current user already exists
-        existing_profile = db.session.query(Employer).filter_by(id=current_user.id).first()
+        existing_profile = Employer.query.filter_by(id=current_user_id).first()
         if existing_profile:
             return {'message': 'Profile already exists'}, 400
 
@@ -373,7 +387,7 @@ class EmployerProfileResource(Resource):
 
         # Directly insert into the employers table
         new_profile_data = {
-            'id': current_user.id,
+            'id': current_user_id,
             'company_name': form_data.get('company_name', ''),
             'company_image': form_data.get('company_image', ''),
             'company_description': form_data.get('company_description', ''),
@@ -387,9 +401,16 @@ class EmployerProfileResource(Resource):
 api.add_resource(EmployerProfileResource, '/employer/profile')
 
 class GetEmployerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self, employer_id):
-        if current_user.id != employer_id:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is requesting their own profile
+        if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
         employer = Employer.query.get(employer_id)
@@ -408,9 +429,16 @@ class GetEmployerProfileResource(Resource):
 api.add_resource(GetEmployerProfileResource, '/employer/profile/<int:employer_id>')
 
 class UpdateEmployerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self, employer_id):
-        if current_user.id != employer_id:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is allowed to update this employer profile
+        if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
         form_data = request.get_json()
@@ -430,8 +458,15 @@ class UpdateEmployerProfileResource(Resource):
 api.add_resource(UpdateEmployerProfileResource, '/employer/profile/<int:employer_id>')
 
 class CreateJobPostingResource(Resource):
-    @login_required
+    @jwt_required()
     def post(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -489,45 +524,97 @@ class CreateJobPostingResource(Resource):
 api.add_resource(CreateJobPostingResource, '/jobposting/create')
 
 class JobPostingsResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
-
         postings = JobPosting.query.all()
+        postings_data = [{
+            'id': posting.id,
+            'title': posting.title,
+            'description': posting.description,
+            'responsibilities': posting.responsibilities,
+            'instructions': posting.instructions,
+            'location': posting.location,
+            'salary_range': posting.salary_range,
+            'qualifications': posting.qualifications,
+            'job_type': posting.job_type,
+            'employer_id': posting.employer_id
+            # Add or remove fields based on your JobPosting model
+        } for posting in postings]
 
-        return jsonify({'postings': [posting.serialize() for posting in postings]})
+        return jsonify({'postings': postings_data})
 
 api.add_resource(JobPostingsResource, '/jobpostings')
 
 class JobPostingResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self, jobposting_id):
         posting = JobPosting.query.get(jobposting_id)
         if posting:
-            return jsonify(posting.serialize())
+            posting_data = {
+                'id': posting.id,
+                'title': posting.title,
+                'description': posting.description,
+                'responsibilities': posting.responsibilities,
+                'instructions': posting.instructions,
+                'location': posting.location,
+                'salary_range': posting.salary_range,
+                'qualifications': posting.qualifications,
+                'job_type': posting.job_type,
+                'employer_id': posting.employer_id
+                # Add or remove fields based on your JobPosting model
+            }
+            return jsonify(posting_data)
         else:
             return {'message': 'Job posting not found'}, 404
 
 api.add_resource(JobPostingResource, '/jobposting/<int:jobposting_id>')
 
 class EmployerJobPostingsResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self, employer_id):
-        if current_user.id != employer_id:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is the employer making the request
+        if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
         postings = JobPosting.query.filter_by(employer_id=employer_id).all()
-        return jsonify({'postings': [posting.serialize() for posting in postings]})
+        postings_data = [{
+            'id': posting.id,
+            'title': posting.title,
+            'description': posting.description,
+            'responsibilities': posting.responsibilities,
+            'instructions': posting.instructions,
+            'location': posting.location,
+            'salary_range': posting.salary_range,
+            'qualifications': posting.qualifications,
+            'job_type': posting.job_type
+            # Add or remove fields based on your JobPosting model
+        } for posting in postings]
+
+        return jsonify({'postings': postings_data})
 
 api.add_resource(EmployerJobPostingsResource, '/employer/<int:employer_id>/jobpostings')
 
 class JobPostingDeleteResource(Resource):
-    @login_required
+    @jwt_required()
     def delete(self, jobposting_id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an employer and authorized to delete this posting
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
         job_posting = JobPosting.query.get(jobposting_id)
-        if not job_posting or job_posting.employer_id != current_user.id:
+        if not job_posting or job_posting.employer_id != current_user_id:
             return {'message': 'Job posting not found or unauthorized'}, 404
 
         db.session.delete(job_posting)
@@ -538,13 +625,20 @@ class JobPostingDeleteResource(Resource):
 api.add_resource(JobPostingDeleteResource, '/jobposting/delete/<int:jobposting_id>')
 
 class JobPostingUpdateResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self, jobposting_id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an employer and authorized to update this posting
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
         job_posting = JobPosting.query.get(jobposting_id)
-        if not job_posting or job_posting.employer_id != current_user.id:
+        if not job_posting or job_posting.employer_id != current_user_id:
             return {'message': 'Job posting not found or unauthorized'}, 404
 
         form_data = request.get_json()
@@ -565,8 +659,15 @@ class JobPostingUpdateResource(Resource):
 api.add_resource(JobPostingUpdateResource, '/jobposting/update/<int:jobposting_id>')
 
 class FileApprovalResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self, jobseeker_id):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an admin
         if current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
@@ -596,7 +697,7 @@ class FileApprovalResource(Resource):
             message += ". You have been verified."
 
         notification = Notification(
-            user_id=jobseeker.id,  # Referencing the jobseeker's ID directly
+            user_id=jobseeker.id,
             message=message,
             is_read=False,
         )
@@ -606,9 +707,10 @@ class FileApprovalResource(Resource):
 api.add_resource(FileApprovalResource, '/jobseeker/file-approval/<int:jobseeker_id>')
 
 class NotificationResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
-        notifications = Notification.query.filter_by(user_id=current_user.id).all()
+        current_user_id = get_jwt_identity()
+        notifications = Notification.query.filter_by(user_id=current_user_id).all()
         result = [{
             'id': notification.id,
             'message': notification.message,
@@ -620,10 +722,12 @@ class NotificationResource(Resource):
 api.add_resource(NotificationResource, '/notifications')
 
 class NotificationReadResource(Resource):
-    @login_required
+    @jwt_required()
     def put(self, notification_id):
+        current_user_id = get_jwt_identity()
         notification = Notification.query.get(notification_id)
-        if not notification or notification.user_id != current_user.id:
+
+        if not notification or notification.user_id != current_user_id:
             return {'message': 'Notification not found or unauthorized'}, 404
 
         notification.is_read = True
@@ -634,8 +738,15 @@ class NotificationReadResource(Resource):
 api.add_resource(NotificationReadResource, '/notifications/read/<int:notification_id>')
 
 class ViewAllJobseekersResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -656,8 +767,14 @@ class ViewAllJobseekersResource(Resource):
 api.add_resource(ViewAllJobseekersResource, '/jobseekers/view')
 
 class ContactJobseekerResource(Resource):
-    @login_required
+    @jwt_required()
     def post(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
         # Check if current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
@@ -682,7 +799,7 @@ class ContactJobseekerResource(Resource):
         db.session.add(contact_request)
 
         # Create a notification for the jobseeker including the employer's message
-        notification_message = f"New contact request from {current_user.company_name}: '{message}'"
+        notification_message = f"New contact request from employer ID {current_user.id}: '{message}'"
         notification = Notification(
             user_id=jobseeker_id,
             message=notification_message
@@ -698,8 +815,15 @@ class ContactJobseekerResource(Resource):
 api.add_resource(ContactJobseekerResource, '/jobseeker/contact')
 
 class ViewAllUsersResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an admin
         if not current_user.is_admin:
             return {'message': 'Unauthorized access'}, 401
 
@@ -717,8 +841,15 @@ class ViewAllUsersResource(Resource):
 api.add_resource(ViewAllUsersResource, '/admin/users/view')
 
 class EmployerSearchResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -751,10 +882,12 @@ class EmployerSearchResource(Resource):
 api.add_resource(EmployerSearchResource, '/employer/search')
 
 class AdminUserManagementResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
 
-        if current_user.type != 'admin':
+        if not current_user or current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         users = User.query.filter(User.type != 'admin').all()
@@ -769,9 +902,12 @@ class AdminUserManagementResource(Resource):
         ]
         return {'users': users_data}, 200
 
-    @login_required
+    @jwt_required()
     def delete(self, user_id):
-        if current_user.type != 'admin':
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user or current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         user = User.query.get(user_id)
@@ -785,9 +921,12 @@ class AdminUserManagementResource(Resource):
 api.add_resource(AdminUserManagementResource, '/admin/users', '/admin/users/<int:user_id>')
 
 class AdminContentModerationResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
-        if current_user.type != 'admin':
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user or current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         postings = JobPosting.query.all()
@@ -801,9 +940,12 @@ class AdminContentModerationResource(Resource):
         ]
         return {'postings': postings_data}, 200
 
-    @login_required
+    @jwt_required()
     def delete(self, posting_id):
-        if current_user.type != 'admin':
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user or current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         posting = JobPosting.query.get(posting_id)
@@ -817,22 +959,29 @@ class AdminContentModerationResource(Resource):
 api.add_resource(AdminContentModerationResource, '/admin/content', '/admin/content/<int:posting_id>')
 
 class AdminJobseekerProfileResource(Resource):
-    @login_required
+    @jwt_required()
     def get(self):
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if not current_user:
+            return {'message': 'User not found'}, 404
+
+        # Check if the current user is an admin
         if current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
         jobseekers = Jobseeker.query.all()
         jobseeker_profiles = [{
             'id': jobseeker.id,
-            'username': jobseeker.username,  
+            'username': jobseeker.username,
             'resume': jobseeker.resume,
             'profile_status': jobseeker.profile_status,
             'availability': jobseeker.availability,
             'job_category': jobseeker.job_category,
             'salary_expectations': jobseeker.salary_expectations,
             'file_approval_status': jobseeker.file_approval_status,
-            'is_verified': jobseeker.is_verified 
+            'is_verified': jobseeker.is_verified
         } for jobseeker in jobseekers]
 
         return {'jobseekers': jobseeker_profiles}, 200

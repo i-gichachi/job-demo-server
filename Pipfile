@@ -18,6 +18,7 @@ psycopg2-binary = "*"
 flask-cors = "*"
 gunicorn = "*"
 honcho = "*"
+flask-jwt-extended = "*"
 
 [dev-packages]
 
