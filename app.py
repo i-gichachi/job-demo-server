@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session, abort
 from flask_restful import Api, Resource, reqparse
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -114,6 +114,14 @@ def create_user_notification(user):
 
     db.session.commit()
 
+class BaseResource(Resource):
+    def dispatch_request(self, *args, **kwargs):
+        protected_methods = ['POST', 'PUT', 'DELETE']
+        if request.method in protected_methods:
+            token = session.pop('_csrf_token', None)
+            if not token or token != request.headers.get('X-CSRFToken'):
+                abort(400)
+        return super().dispatch_request(*args, **kwargs)
 
 class CsrfTokenResource(Resource):
     def get(self):
