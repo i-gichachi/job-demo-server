@@ -16,6 +16,8 @@ sqlalchemy-serializer = "*"
 requests = "*"
 psycopg2-binary = "*"
 flask-cors = "*"
+gunicorn = "*"
+honcho = "*"
 
 [dev-packages]
 
