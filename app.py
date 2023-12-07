@@ -170,14 +170,9 @@ api.add_resource(LogoutResource, '/logout')
 
 class SignupResource(Resource):
     def post(self):
-        form_data = request.get_json()
-        form = SignupForm(data=form_data)
+        data = request.get_json()
 
-        if not form.validate():
-            return {'errors': form.errors}, 400
-
-        data = form.data
-
+        # Check for existing users
         if User.query.filter_by(email=data['email']).first():
             return {'message': 'Email already exists'}, 400
 
