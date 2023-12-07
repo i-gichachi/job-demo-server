@@ -27,7 +27,7 @@ db.init_app(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
-#csrf = CSRFProtect(app)
+
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
@@ -137,7 +137,6 @@ class CheckUserResource(Resource):
                 'user_id': current_user.id,
                 'user_type': current_user.type,
                 'username': current_user.username,
-                # Add any other details you might want to return
             })
         else:
             return jsonify({'logged_in': False})
@@ -158,10 +157,10 @@ class LoginResource(Resource):
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             return jsonify({
-                'message': 'Logged in successfully',
-                'user_id': user.id,
+                'message': 'Logged in successfully', 
+                'user_id': user.id, 
                 'user_type': user.type,
-                'username': user.username
+                'username': user.username  # Add this line
             }) 
         else:
             return {'message': 'Invalid credentials'}, 401
