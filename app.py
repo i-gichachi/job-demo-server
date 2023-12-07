@@ -709,36 +709,6 @@ class ViewAllUsersResource(Resource):
 
 api.add_resource(ViewAllUsersResource, '/admin/users/view')
 
-class JobseekerSearchResource(Resource):
-    def get(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('availability', type=str)
-        parser.add_argument('job_category', type=str)
-        parser.add_argument('salary_expectations', type=str)
-        args = parser.parse_args()
-
-        query = Jobseeker.query
-        if args['availability']:
-            query = query.filter(Jobseeker.availability == args['availability'])
-        if args['job_category']:
-            query = query.filter(Jobseeker.job_category == args['job_category'])
-        if args['salary_expectations']:
-            query = query.filter(Jobseeker.salary_expectations == args['salary_expectations'])
-
-        jobseekers = query.all()
-        jobseekers_data = [{
-            'id': jobseeker.id,
-            'username': jobseeker.username,
-            'availability': jobseeker.availability,
-            'job_category': jobseeker.job_category,
-            'salary_expectations': jobseeker.salary_expectations,
-            'is_verified': jobseeker.is_verified 
-        } for jobseeker in jobseekers]
-
-        return {'jobseekers': jobseekers_data}, 200
-
-api.add_resource(JobseekerSearchResource, '/jobseekers/search')
-
 class EmployerSearchResource(Resource):
     @login_required
     def get(self):
@@ -885,7 +855,17 @@ class STKCallbackResource(Resource):
         else:
             return {'status': 'failed', 'message': 'Employer not found.'}, 404
 
-api.add_resource(STKCallbackResource, '/stk-callback') 
+api.add_resource(STKCallbackResource, '/stk-callback')
+
+class PaymentStatusResource(Resource):
+    def get(self, employer_id):
+        employer = Employer.query.get(employer_id)
+        if employer:
+            return {'verified': employer.verified}
+        else:
+            return {'status': 'failed', 'message': 'Employer not found.'}, 404
+
+api.add_resource(PaymentStatusResource, '/payment-status/<int:employer_id>')
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
