@@ -26,6 +26,7 @@ api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager(app)
+csrf = CSRFProtect(app)
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
@@ -112,6 +113,13 @@ def create_user_notification(user):
         db.session.add(notification)
 
     db.session.commit()
+
+
+class CsrfTokenResource(Resource):
+    def get(self):
+        return jsonify({'csrf_token': generate_csrf()})
+    
+api.add_resource(CsrfTokenResource, '/csrf_token')
 
 class HomePageResource(Resource):
     def get(self):
