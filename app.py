@@ -540,29 +540,14 @@ class JobPostingsResource(Resource):
 
 api.add_resource(JobPostingsResource, '/jobpostings')
 
-class JobPostingResource(Resource):
+class JobPostingsResource(Resource):
     @jwt_required()
-    def get(self, jobposting_id):
-        posting = JobPosting.query.get(jobposting_id)
-        if posting:
-            posting_data = {
-                'id': posting.id,
-                'title': posting.title,
-                'description': posting.description,
-                'responsibilities': posting.responsibilities,
-                'instructions': posting.instructions,
-                'location': posting.location,
-                'salary_range': posting.salary_range,
-                'qualifications': posting.qualifications,
-                'job_type': posting.job_type,
-                'employer_id': posting.employer_id
-                # Add or remove fields based on your JobPosting model
-            }
-            return jsonify(posting_data)
-        else:
-            return {'message': 'Job posting not found'}, 404
+    def get(self):
+        postings = JobPosting.query.all()
+        postings_data = [posting.serialize() for posting in postings]
+        return jsonify({'postings': postings_data})
 
-api.add_resource(JobPostingResource, '/jobposting/<int:jobposting_id>')
+api.add_resource(JobPostingsResource, '/jobpostings')
 
 class EmployerJobPostingsResource(Resource):
     @jwt_required()

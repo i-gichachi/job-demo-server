@@ -124,6 +124,7 @@ class JobPosting(db.Model, SerializerMixin):
 
             'job_type': self.job_type,
             'employer': {
+                'id': self.employer.id,
                 'company_name': self.employer.company_name,
                 'company_image': self.employer.company_image,
             }
