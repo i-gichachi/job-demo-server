@@ -540,14 +540,14 @@ class JobPostingsResource(Resource):
 
 api.add_resource(JobPostingsResource, '/jobpostings')
 
-class JobPostingsResource(Resource):
+class JobPostingResource(Resource):
     @jwt_required()
     def get(self):
         postings = JobPosting.query.all()
         postings_data = [posting.serialize() for posting in postings]
         return jsonify({'postings': postings_data})
-
-api.add_resource(JobPostingsResource, '/jobpostings')
+    
+api.add_resource(JobPostingResource, '/jobposting/<int:jobposting_id>')
 
 class EmployerJobPostingsResource(Resource):
     @jwt_required()
