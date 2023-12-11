@@ -112,6 +112,12 @@ class JobPosting(db.Model, SerializerMixin):
     employer = db.relationship('Employer', backref=db.backref('postings', lazy='dynamic'))
 
     def serialize(self):
+        employer_data = {
+            'id': self.employer.id,
+            'company_name': self.employer.company_name,
+            'company_image': self.employer.company_image,
+            } if self.employer else None
+        
         return {
             'id': self.id,
             'title': self.title,
@@ -121,14 +127,9 @@ class JobPosting(db.Model, SerializerMixin):
             'location': self.location,
             'salary_range': self.salary_range,
             'qualifications': self.qualifications,
-
             'job_type': self.job_type,
-            'employer': {
-                'id': self.employer.id,
-                'company_name': self.employer.company_name,
-                'company_image': self.employer.company_image,
+            'employer': employer_data
             }
-        }
 
 class Notification(db.Model, SerializerMixin):
     __tablename__ = 'notifications'
