@@ -533,11 +533,17 @@ api.add_resource(JobPostingsResource, '/jobpostings')
 
 class JobPostingResource(Resource):
     @jwt_required()
-    def get(self):
-        postings = JobPosting.query.all()
-        postings_data = [posting.serialize() for posting in postings]
-        return jsonify({'postings': postings_data})
-    
+    def get(self, jobposting_id):
+        try:
+            posting = JobPosting.query.get(jobposting_id)
+            if posting:
+                return jsonify(posting.serialize())
+            else:
+                return {"message": "Job posting not found"}, 404
+        except Exception as e:
+            print("Error: ", e)  # Log the exception for debugging
+            return {"message": "An error occurred while fetching job posting"}, 500
+        
 api.add_resource(JobPostingResource, '/jobposting/<int:jobposting_id>')
 
 class EmployerJobPostingsResource(Resource):
