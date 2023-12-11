@@ -105,7 +105,7 @@ class JobPosting(db.Model, SerializerMixin):
     instructions = db.Column(db.String(1000))
     location = db.Column(db.String(255))
     salary_range = db.Column(db.String(255))
-    qualifications = db.Column(db.String(500))            
+    qualifications = db.Column(db.String(1000))            
     job_type = db.Column(db.String(120))   
 
     employer_id = db.Column(db.Integer, db.ForeignKey('employers.id'))
