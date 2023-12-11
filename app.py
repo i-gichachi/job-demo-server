@@ -521,22 +521,13 @@ api.add_resource(CreateJobPostingResource, '/jobposting/create')
 class JobPostingsResource(Resource):
     @jwt_required()
     def get(self):
-        postings = JobPosting.query.all()
-        postings_data = [{
-            'id': posting.id,
-            'title': posting.title,
-            'description': posting.description,
-            'responsibilities': posting.responsibilities,
-            'instructions': posting.instructions,
-            'location': posting.location,
-            'salary_range': posting.salary_range,
-            'qualifications': posting.qualifications,
-            'job_type': posting.job_type,
-            'employer_id': posting.employer_id
-            # Add or remove fields based on your JobPosting model
-        } for posting in postings]
-
-        return jsonify({'postings': postings_data})
+        try:
+            postings = JobPosting.query.all()
+            postings_data = [posting.serialize() for posting in postings]
+            return jsonify({'postings': postings_data})
+        except Exception as e:
+            print("Error: ", e)  # Log the exception for debugging
+            return {"message": "An error occurred while fetching job postings"}, 500
 
 api.add_resource(JobPostingsResource, '/jobpostings')
 
