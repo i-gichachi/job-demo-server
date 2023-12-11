@@ -100,9 +100,9 @@ class JobPosting(db.Model, SerializerMixin):
     __tablename__ = 'jobpostings'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120))
-    description = db.Column(db.String(500))
-    responsibilities = db.Column(db.String(500))
-    instructions = db.Column(db.String(500))
+    description = db.Column(db.String(1000))
+    responsibilities = db.Column(db.String(1000))
+    instructions = db.Column(db.String(1000))
     location = db.Column(db.String(255))
     salary_range = db.Column(db.String(255))
     qualifications = db.Column(db.String(500))            
