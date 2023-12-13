@@ -11,6 +11,7 @@ from models import db, User, Jobseeker, Employer, JobPosting, Notification, Cont
 import requests
 import base64
 import datetime
+import logging
 
 app = Flask(__name__)
 
@@ -24,6 +25,10 @@ CORS(app)
 api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
+
+logging.basicConfig(level=logging.DEBUG)
+logger = app.logger
+
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
@@ -993,19 +998,33 @@ api.add_resource(STKPushResource, '/stk-push')
 class STKCallbackResource(Resource):
     def post(self):
         data = request.get_json()
-        # Ensure you use the correct indexes to access phone number and other details based on the actual M-Pesa callback structure.
-        phone_number = data['Body']['stkCallback']['CallbackMetadata']['Item'][4]['Value']
+        logger.debug(f"Received callback data: {data}")
 
-        employer = Employer.query.filter_by(phone_number=str(phone_number)).first()
-        if employer:
-            # Logic to check if the payment was successful and the amount is correct
-            # should be implemented here, based on the actual M-Pesa callback structure.
-            # Assuming you have verified the payment was successful:
-            employer.verified = True
-            db.session.commit()
-            return {'status': 'success', 'message': 'Employer verified successfully.'}
-        else:
-            return {'status': 'failed', 'message': 'Employer not found.'}, 404
+        if not data:
+            logger.error("No data received in the callback")
+            return {'status': 'failed', 'message': 'No data received'}, 400
+
+        try:
+            phone_number = data['Body']['stkCallback']['CallbackMetadata']['Item'][4]['Value']
+            logger.debug(f"Extracted phone number: {phone_number}")
+
+            employer = Employer.query.filter_by(phone_number=str(phone_number)).first()
+            if employer:
+                logger.debug(f"Employer found: {employer}")
+                # Your logic for verifying payment and updating employer status
+                employer.verified = True
+                # Save changes to the database
+                # db.session.commit()
+                return {'status': 'success', 'message': 'Employer verified successfully.'}
+            else:
+                logger.error(f"Employer with phone number {phone_number} not found")
+                return {'status': 'failed', 'message': 'Employer not found'}, 404
+        except KeyError as e:
+            logger.error(f"KeyError in parsing callback data: {e}")
+            return {'status': 'failed', 'message': 'Invalid data structure received'}, 400
+        except Exception as e:
+            logger.error(f"Unexpected error in STK callback: {e}")
+            return {'status': 'failed', 'message': 'An error occurred'}, 500
 
 api.add_resource(STKCallbackResource, '/stk-callback')
 
