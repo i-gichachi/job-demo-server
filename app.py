@@ -690,6 +690,8 @@ class NotificationResource(Resource):
         notifications = Notification.query.filter_by(user_id=current_user_id).all()
         result = [{
             'id': notification.id,
+            'type': notification.type,  # New field
+            'title': notification.title,  # New field
             'message': notification.message,
             'is_read': notification.is_read,
         } for notification in notifications]

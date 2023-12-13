@@ -134,9 +134,11 @@ class JobPosting(db.Model, SerializerMixin):
 class Notification(db.Model, SerializerMixin):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))  
-    message = db.Column(db.String(500))                         
-    is_read = db.Column(db.Boolean, default=False)                
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    type = db.Column(db.String(255))  # New field for notification type
+    title = db.Column(db.String(255))  # New field for job title or main info
+    details = db.Column(db.String(500))  # Detailed message or description
+    is_read = db.Column(db.Boolean, default=False)
 
     user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
 
