@@ -494,14 +494,16 @@ class CreateJobPostingResource(Resource):
         admins = Admin.query.all()
         jobseekers = Jobseeker.query.all()
 
-        # Construct the notification message
-        notification_message = f"New job posting: {job_posting.title}"
+        # Construct the notification title and message
+        notification_title = "New job posting"
+        notification_message = f"{job_posting.title} is now available."
 
         # Function to create notifications for each user
         def create_notification(user):
             notification = Notification(
                 user_id=user.id, 
-                message=notification_message, 
+                title=notification_title,  # Set the title
+                message=notification_message,  # Set the message
                 is_read=False, 
             )
             db.session.add(notification)
@@ -669,13 +671,20 @@ class FileApprovalResource(Resource):
         return {'message': f'Jobseeker file status updated to {approval_status}'}, 200
 
     def send_approval_notification(self, jobseeker, approval_status):
-        message = f"Your profile has been {approval_status}"
-        if approval_status == 'approved':
-            message += ". You have been verified."
+        # Define the title of the notification
+        notification_title = "Profile Approval Status"
 
+        # Create a detailed message based on the approval status
+        if approval_status == 'approved':
+            notification_message = "Congratulations! Your profile has been approved. You have been verified."
+        else:  # if rejected
+            notification_message = "Your profile has not been approved. Please update your files for verification."
+
+        # Create a new notification with title and message
         notification = Notification(
             user_id=jobseeker.id,
-            message=message,
+            title=notification_title,  # Set the title
+            message=notification_message,  # Set the message
             is_read=False,
         )
         db.session.add(notification)
@@ -758,30 +767,42 @@ class ContactJobseekerResource(Resource):
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
+        # Fetch the employer's company name
+        employer = Employer.query.filter_by(id=current_user_id).first()
+        if not employer:
+            return {'message': 'Employer not found'}, 404
+        company_name = employer.company_name
+
         # Parse the incoming data from the request
         form_data = request.get_json()
         jobseeker_id = form_data.get('jobseeker_id')
-        message = form_data.get('message')
+        contact_message = form_data.get('message')
 
         # Validate the message content
-        if not message:
+        if not contact_message:
             return {'message': 'Message is required'}, 400
 
         # Create a new contact request
         contact_request = ContactRequest(
-            sender_id=current_user.id,
+            sender_id=current_user_id,
             receiver_id=jobseeker_id,
-            message=message
+            message=contact_message,
+            timestamp=datetime.utcnow()
         )
 
         # Add the contact request to the database
         db.session.add(contact_request)
 
-        # Create a notification for the jobseeker including the employer's message
-        notification_message = f"New contact request from employer ID {current_user.id}: '{message}'"
+        # Define the title and message for the notification
+        notification_title = "Contact Request"
+        notification_message = f"You have a new contact request from {company_name}."
+
+        # Create a notification for the jobseeker including the employer's company name
         notification = Notification(
             user_id=jobseeker_id,
-            message=notification_message
+            title=notification_title,
+            message=notification_message,
+            is_read=False
         )
 
         # Add the notification to the database
