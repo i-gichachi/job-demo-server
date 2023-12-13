@@ -639,12 +639,16 @@ class FileApprovalResource(Resource):
         self.send_approval_notification(jobseeker, approval_status)
 
         return {'message': f'Jobseeker file status updated to {approval_status}'}, 200
-
+    
     def send_approval_notification(self, jobseeker, approval_status):
-        notification_title = "Profile Approval Status"
-        notification_message = ("Congratulations! Your profile has been approved. You have been verified." 
-                                if approval_status == 'approved' 
-                                else "Your profile has not been approved. Please update your files for verification.")
+        if approval_status == 'approved':
+            notification_title = "Profile Approval Status"
+            notification_message = "Congratulations! Your profile has been approved. You have been verified."
+        else:
+            notification_title = "Profile Approval Needed"
+            notification_message = ("Unfortunately, your profile has not been approved. " 
+                                    "To enhance your CV, consider visiting resources such as TopCV or Enhancv for tips and guidelines. " 
+                                    "Improving your CV increases your chances of getting verified.")
 
         notification = Notification(
             user_id=jobseeker.id,
