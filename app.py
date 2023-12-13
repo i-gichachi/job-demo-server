@@ -1009,5 +1009,16 @@ class STKCallbackResource(Resource):
 
 api.add_resource(STKCallbackResource, '/stk-callback')
 
+class PaymentStatusResource(Resource):
+    @jwt_required()
+    def get(self, employer_id):
+        employer = Employer.query.get(employer_id)
+        if employer:
+            return {'verified': employer.verified}
+        else:
+            return {'status': 'failed', 'message': 'Employer not found.'}, 404
+
+api.add_resource(PaymentStatusResource, '/payment-status/<int:employer_id>')
+
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
