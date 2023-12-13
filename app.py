@@ -110,7 +110,7 @@ def create_user_notification(user):
 class HomePageResource(Resource):
     def get(self):
         return {
-            'message': 'Welcome to the Job Seeking App API'
+            'message': 'Welcome to UncleMaconnection Job-Seeking App'
         }
 
 api.add_resource(HomePageResource, '/')
