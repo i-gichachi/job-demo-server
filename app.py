@@ -646,7 +646,6 @@ class FileApprovalResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an admin
         if current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
@@ -661,30 +660,28 @@ class FileApprovalResource(Resource):
             return {'message': 'Jobseeker not found'}, 404
 
         jobseeker.file_approval_status = approval_status
-        jobseeker.is_verified = True if approval_status == 'approved' else False
+        jobseeker.is_verified = approval_status == 'approved'
 
         db.session.commit()
 
-        # Send notification to jobseeker
+        # For debugging: Retrieve and log the jobseeker's verification status
+        updated_jobseeker = Jobseeker.query.get(jobseeker_id)
+        print(f"Jobseeker's verified status after commit: {updated_jobseeker.is_verified}")
+
         self.send_approval_notification(jobseeker, approval_status)
 
         return {'message': f'Jobseeker file status updated to {approval_status}'}, 200
 
     def send_approval_notification(self, jobseeker, approval_status):
-        # Define the title of the notification
         notification_title = "Profile Approval Status"
+        notification_message = ("Congratulations! Your profile has been approved. You have been verified." 
+                                if approval_status == 'approved' 
+                                else "Your profile has not been approved. Please update your files for verification.")
 
-        # Create a detailed message based on the approval status
-        if approval_status == 'approved':
-            notification_message = "Congratulations! Your profile has been approved. You have been verified."
-        else:  # if rejected
-            notification_message = "Your profile has not been approved. Please update your files for verification."
-
-        # Create a new notification with title and message
         notification = Notification(
             user_id=jobseeker.id,
-            title=notification_title,  # Set the title
-            message=notification_message,  # Set the message
+            title=notification_title,
+            message=notification_message,
             is_read=False,
         )
         db.session.add(notification)
