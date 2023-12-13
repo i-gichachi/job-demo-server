@@ -3,7 +3,6 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy_serializer import SerializerMixin
 import re
-from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -135,9 +134,9 @@ class Notification(db.Model, SerializerMixin):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    type = db.Column(db.String(255))  # New field for notification type
-    title = db.Column(db.String(255))  # New field for job title or main info
-    message = db.Column(db.String(500))  # Detailed message or description
+    type = db.Column(db.String(255))  
+    title = db.Column(db.String(255))  
+    message = db.Column(db.String(500))  
     is_read = db.Column(db.Boolean, default=False)
 
     user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))

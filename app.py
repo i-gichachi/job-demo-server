@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_restful import Api, Resource, reqparse
+from flask_restful import Api, Resource
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -28,7 +28,7 @@ migrate = Migrate(app, db)
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
 BUSINESS_SHORT_CODE = '174379'
-LIPA_NA_MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Your passkey
+LIPA_NA_MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  
 CALLBACK_URL = 'https://test-server-6mxa.onrender.com/stk-callback'
 
 def get_access_token():
@@ -51,10 +51,10 @@ def stk_push(phone_number, amount=1):
         'Password': password,
         'Timestamp': timestamp,
         'TransactionType': 'CustomerPayBillOnline',
-        'Amount': amount,  # The amount to be paid
-        'PartyA': phone_number,  # Employer's phone number
+        'Amount': amount,  
+        'PartyA': phone_number,  
         'PartyB': BUSINESS_SHORT_CODE,
-        'PhoneNumber': phone_number,  # Employer's phone number
+        'PhoneNumber': phone_number, 
         'CallBackURL': CALLBACK_URL,
         'AccountReference': 'UncleMaconnectionLTD',
         'TransactionDesc': 'Employer Verification Payment'
@@ -129,10 +129,9 @@ class CheckUserResource(Resource):
                 'username': user.username,
             })
         else:
-            # This case might not be necessary since @jwt_required() ensures a valid user
+
             return jsonify({'logged_in': False})
 
-# Add the CheckUser Resource to API
 api.add_resource(CheckUserResource, '/check_user')
 
 class LoginResource(Resource):
@@ -146,11 +145,11 @@ class LoginResource(Resource):
                                  (User.phone_number == user_identifier)).first()
 
         if user and check_password_hash(user.password_hash, password):
-            # Create JWT access token
+
             access_token = create_access_token(identity=user.id)
             return jsonify({
                 'message': 'Logged in successfully',
-                'access_token': access_token,  # Send the JWT token to the client
+                'access_token': access_token,  
                 'user_id': user.id,
                 'user_type': user.type,
                 'username': user.username
@@ -163,7 +162,7 @@ api.add_resource(LoginResource, '/login')
 class LogoutResource(Resource):
     @jwt_required()
     def post(self):
-        # JWT logout is handled client-side. Inform the client.
+
         return {'message': 'Please discard your access token.'}, 200
 
 api.add_resource(LogoutResource, '/logout')
@@ -172,7 +171,6 @@ class SignupResource(Resource):
     def post(self):
         data = request.get_json()
 
-        # Check for existing users
         if User.query.filter_by(email=data['email']).first():
             return {'message': 'Email already exists'}, 400
 
@@ -263,23 +261,18 @@ class JobseekerProfileResource(Resource):
         if not user:
             return {'message': 'User not found'}, 404
 
-        # Ensure the current user is a jobseeker
         if user.type != 'jobseeker':
             return {'message': 'Access denied. Only jobseekers can create a profile.'}, 403
 
-        # Check if the jobseeker profile for the current user already exists
         jobseeker_profile = Jobseeker.query.filter_by(id=user.id).first()
         if jobseeker_profile:
             return {'message': 'Profile already exists. Use the update profile API to make changes.'}, 400
 
         form_data = request.get_json()
 
-        # Validate the data
         if 'resume' not in form_data or not form_data['resume'].strip():
             return {'message': 'Resume is required.'}, 400
-        # Add more validation checks here
 
-        # Directly insert into the jobseekers table
         new_profile_data = {
             'id': user.id,
             'resume': form_data['resume'],
@@ -302,7 +295,6 @@ class GetJobseekerProfileResource(Resource):
     def get(self, jobseeker_id):
         current_user_id = get_jwt_identity()
         
-        # Check if the current user is requesting their own profile
         if current_user_id != jobseeker_id:
             return {'message': 'Unauthorized access'}, 401
 
@@ -333,7 +325,6 @@ class UpdateJobseekerProfileResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is the jobseeker or an admin
         if current_user_id != jobseeker_id and current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
@@ -364,23 +355,18 @@ class EmployerProfileResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized or invalid user'}, 401
 
         form_data = request.get_json()
 
-        # Check if the employer profile for the current user already exists
         existing_profile = Employer.query.filter_by(id=current_user_id).first()
         if existing_profile:
             return {'message': 'Profile already exists'}, 400
 
-        # Validate the data (add your own validations here)
         if not form_data.get('company_name'):
             return {'message': 'Company name is required.'}, 400
-        # Add more validation checks here
-
-        # Directly insert into the employers table
+        
         new_profile_data = {
             'id': current_user_id,
             'company_name': form_data.get('company_name', ''),
@@ -404,7 +390,6 @@ class GetEmployerProfileResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is requesting their own profile
         if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
@@ -432,7 +417,6 @@ class UpdateEmployerProfileResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is allowed to update this employer profile
         if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
@@ -461,13 +445,11 @@ class CreateJobPostingResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
         form_data = request.get_json()
 
-        # Create a new JobPosting object
         job_posting = JobPosting(
             title=form_data.get('title'),
             description=form_data.get('description'),
@@ -480,44 +462,37 @@ class CreateJobPostingResource(Resource):
             employer_id=current_user.id
         )
 
-        # Add the new job posting to the database session and commit it
         db.session.add(job_posting)
         db.session.commit()
 
-        # Send notification to admins and jobseekers
         self.send_new_posting_notifications(job_posting)
 
         return {'message': 'Job posting created successfully'}, 201
 
     def send_new_posting_notifications(self, job_posting):
-        # Fetch all admins and jobseekers
+
         admins = Admin.query.all()
         jobseekers = Jobseeker.query.all()
 
-        # Construct the notification title and message
         notification_title = "New job posting"
         notification_message = f"{job_posting.title} is now available."
 
-        # Function to create notifications for each user
         def create_notification(user):
             notification = Notification(
                 user_id=user.id, 
-                title=notification_title,  # Set the title
-                message=notification_message,  # Set the message
+                title=notification_title,  
+                message=notification_message,  
                 is_read=False, 
             )
             db.session.add(notification)
 
-        # Create notifications for each admin and jobseeker
         for admin in admins:
             create_notification(admin)
         for jobseeker in jobseekers:
             create_notification(jobseeker)
 
-        # Commit the notifications to the database
         db.session.commit()
 
-# Add the resource to the API
 api.add_resource(CreateJobPostingResource, '/jobposting/create')
 
 class JobPostingsResource(Resource):
@@ -528,7 +503,7 @@ class JobPostingsResource(Resource):
             postings_data = [posting.serialize() for posting in postings]
             return jsonify({'postings': postings_data})
         except Exception as e:
-            print("Error: ", e)  # Log the exception for debugging
+            print("Error: ", e)  
             return {"message": "An error occurred while fetching job postings"}, 500
 
 api.add_resource(JobPostingsResource, '/jobpostings')
@@ -543,7 +518,7 @@ class JobPostingResource(Resource):
             else:
                 return {"message": "Job posting not found"}, 404
         except Exception as e:
-            print("Error: ", e)  # Log the exception for debugging
+            print("Error: ", e)  
             return {"message": "An error occurred while fetching job posting"}, 500
         
 api.add_resource(JobPostingResource, '/jobposting/<int:jobposting_id>')
@@ -557,7 +532,6 @@ class EmployerJobPostingsResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is the employer making the request
         if current_user_id != employer_id:
             return {'message': 'Unauthorized access'}, 401
 
@@ -572,7 +546,7 @@ class EmployerJobPostingsResource(Resource):
             'salary_range': posting.salary_range,
             'qualifications': posting.qualifications,
             'job_type': posting.job_type
-            # Add or remove fields based on your JobPosting model
+
         } for posting in postings]
 
         return jsonify({'postings': postings_data})
@@ -588,7 +562,6 @@ class JobPostingDeleteResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an employer and authorized to delete this posting
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -612,7 +585,6 @@ class JobPostingUpdateResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an employer and authorized to update this posting
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -692,8 +664,8 @@ class NotificationResource(Resource):
         notifications = Notification.query.filter_by(user_id=current_user_id).all()
         result = [{
             'id': notification.id,
-            'type': notification.type,  # New field
-            'title': notification.title,  # New field
+            'type': notification.type,  
+            'title': notification.title,  
             'message': notification.message,
             'is_read': notification.is_read,
         } for notification in notifications]
@@ -727,11 +699,10 @@ class ViewAllJobseekersResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Ensure the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
-        jobseekers = Jobseeker.query.filter_by(profile_status='Active').all()
+        jobseekers = Jobseeker.query.filter_by(profile_status='Active', is_verified=True).all()
         jobseekers_data = [{
             'id': jobseeker.id,
             'username': jobseeker.username,  
@@ -756,40 +727,32 @@ class ContactJobseekerResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
-        # Fetch the employer's company name
         employer = Employer.query.filter_by(id=current_user_id).first()
         if not employer:
             return {'message': 'Employer not found'}, 404
         company_name = employer.company_name
 
-        # Parse the incoming data from the request
         form_data = request.get_json()
         jobseeker_id = form_data.get('jobseeker_id')
         contact_message = form_data.get('message')
 
-        # Validate the message content
         if not contact_message:
             return {'message': 'Message is required'}, 400
 
-        # Create a new contact request
         contact_request = ContactRequest(
             sender_id=current_user_id,
             receiver_id=jobseeker_id,
             message=contact_message,
         )
 
-        # Add the contact request to the database
         db.session.add(contact_request)
 
-        # Define the title and message for the notification
         notification_title = f"Message from {company_name}"
         notification_message = f"{company_name} sent you a message: '{contact_message}'"
 
-        # Create a notification for the jobseeker including the employer's company name and message
         notification = Notification(
             user_id=jobseeker_id,
             title=notification_title,
@@ -797,11 +760,9 @@ class ContactJobseekerResource(Resource):
             is_read=False
         )
 
-        # Add the notification to the database
         db.session.add(notification)
         db.session.commit()
 
-        # Return a success message
         return {'message': 'Contact request sent successfully'}, 201
 
 api.add_resource(ContactJobseekerResource, '/jobseeker/contact')
@@ -815,7 +776,6 @@ class ViewAllUsersResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an admin
         if not current_user.is_admin:
             return {'message': 'Unauthorized access'}, 401
 
@@ -841,7 +801,6 @@ class EmployerSearchResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an employer
         if current_user.type != 'employer':
             return {'message': 'Unauthorized access'}, 401
 
@@ -959,7 +918,6 @@ class AdminJobseekerProfileResource(Resource):
         if not current_user:
             return {'message': 'User not found'}, 404
 
-        # Check if the current user is an admin
         if current_user.type != 'admin':
             return {'message': 'Unauthorized access'}, 401
 
@@ -987,12 +945,12 @@ class STKPushResource(Resource):
         phone_number = data.get('phone_number')
         amount = data.get('amount')
 
-        current_user_id = get_jwt_identity()  # Get the currently logged-in user ID
+        current_user_id = get_jwt_identity()  
         response = stk_push(phone_number, amount)
 
         checkout_request_id = response.get('CheckoutRequestID')
         if checkout_request_id:
-            # Store the CheckoutRequestID and current_user_id association
+
             PaymentMapping.save(checkout_request_id, current_user_id)
 
         return response
@@ -1004,14 +962,24 @@ class STKCallbackResource(Resource):
         data = request.get_json()
         checkout_request_id = data['Body']['stkCallback']['CheckoutRequestID']
 
-        # Retrieve the employer_id associated with this CheckoutRequestID
         employer_id = PaymentMapping.get_employer_id(checkout_request_id)
         if employer_id:
             employer = Employer.query.get(employer_id)
             if employer:
-                # Update the employer's verification status
+                
                 employer.verified = True
                 db.session.commit()
+
+                notification = Notification(
+                    user_id=employer.id,
+                    type='Verification',  
+                    title='Payment Verification Successful',
+                    message='Your payment has been successfully verified. Your account is now verified.',
+                    is_read=False
+                )
+                db.session.add(notification)
+                db.session.commit()
+
                 return {'status': 'success', 'message': 'Employer verified successfully.'}
             else:
                 return {'status': 'failed', 'message': 'Employer not found.'}, 404
