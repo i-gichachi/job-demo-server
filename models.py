@@ -151,3 +151,21 @@ class ContactRequest(db.Model):
 
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
+
+class PaymentMapping(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    checkout_request_id = db.Column(db.String(100), unique=True, nullable=False)
+    employer_id = db.Column(db.Integer, db.ForeignKey('employers.id'), nullable=False)
+
+    employer = db.relationship('Employer', backref=db.backref('payment_mappings', lazy=True))
+
+    @staticmethod
+    def save(checkout_request_id, employer_id):
+        mapping = PaymentMapping(checkout_request_id=checkout_request_id, employer_id=employer_id)
+        db.session.add(mapping)
+        db.session.commit()
+
+    @staticmethod
+    def get_employer_id(checkout_request_id):
+        mapping = PaymentMapping.query.filter_by(checkout_request_id=checkout_request_id).first()
+        return mapping.employer_id if mapping else None

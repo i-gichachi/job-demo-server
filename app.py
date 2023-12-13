@@ -7,11 +7,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, DateField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Regexp
-from models import db, User, Jobseeker, Employer, JobPosting, Notification, ContactRequest, Admin
+from models import db, User, Jobseeker, Employer, JobPosting, Notification, ContactRequest, Admin, PaymentMapping
 import requests
 import base64
 import datetime
-import logging
 
 app = Flask(__name__)
 
@@ -25,10 +24,6 @@ CORS(app)
 api = Api(app)
 db.init_app(app)
 migrate = Migrate(app, db)
-
-logging.basicConfig(level=logging.DEBUG)
-logger = app.logger
-
 
 CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
@@ -986,11 +981,20 @@ class AdminJobseekerProfileResource(Resource):
 api.add_resource(AdminJobseekerProfileResource, '/admin/jobseekers')
 
 class STKPushResource(Resource):
+    @jwt_required()
     def post(self):
         data = request.get_json()
         phone_number = data.get('phone_number')
         amount = data.get('amount')
+
+        current_user_id = get_jwt_identity()  # Get the currently logged-in user ID
         response = stk_push(phone_number, amount)
+
+        checkout_request_id = response.get('CheckoutRequestID')
+        if checkout_request_id:
+            # Store the CheckoutRequestID and current_user_id association
+            PaymentMapping.save(checkout_request_id, current_user_id)
+
         return response
 
 api.add_resource(STKPushResource, '/stk-push')
@@ -998,33 +1002,21 @@ api.add_resource(STKPushResource, '/stk-push')
 class STKCallbackResource(Resource):
     def post(self):
         data = request.get_json()
-        logger.debug(f"Received callback data: {data}")
+        checkout_request_id = data['Body']['stkCallback']['CheckoutRequestID']
 
-        if not data:
-            logger.error("No data received in the callback")
-            return {'status': 'failed', 'message': 'No data received'}, 400
-
-        try:
-            phone_number = data['Body']['stkCallback']['CallbackMetadata']['Item'][4]['Value']
-            logger.debug(f"Extracted phone number: {phone_number}")
-
-            employer = Employer.query.filter_by(phone_number=str(phone_number)).first()
+        # Retrieve the employer_id associated with this CheckoutRequestID
+        employer_id = PaymentMapping.get_employer_id(checkout_request_id)
+        if employer_id:
+            employer = Employer.query.get(employer_id)
             if employer:
-                logger.debug(f"Employer found: {employer}")
-                # Your logic for verifying payment and updating employer status
+                # Update the employer's verification status
                 employer.verified = True
-                # Save changes to the database
-                # db.session.commit()
+                db.session.commit()
                 return {'status': 'success', 'message': 'Employer verified successfully.'}
             else:
-                logger.error(f"Employer with phone number {phone_number} not found")
-                return {'status': 'failed', 'message': 'Employer not found'}, 404
-        except KeyError as e:
-            logger.error(f"KeyError in parsing callback data: {e}")
-            return {'status': 'failed', 'message': 'Invalid data structure received'}, 400
-        except Exception as e:
-            logger.error(f"Unexpected error in STK callback: {e}")
-            return {'status': 'failed', 'message': 'An error occurred'}, 500
+                return {'status': 'failed', 'message': 'Employer not found.'}, 404
+        else:
+            return {'status': 'failed', 'message': 'Payment information not found.'}, 404
 
 api.add_resource(STKCallbackResource, '/stk-callback')
 
