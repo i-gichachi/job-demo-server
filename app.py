@@ -664,10 +664,6 @@ class FileApprovalResource(Resource):
 
         db.session.commit()
 
-        # For debugging: Retrieve and log the jobseeker's verification status
-        updated_jobseeker = Jobseeker.query.get(jobseeker_id)
-        print(f"Jobseeker's verified status after commit: {updated_jobseeker.is_verified}")
-
         self.send_approval_notification(jobseeker, approval_status)
 
         return {'message': f'Jobseeker file status updated to {approval_status}'}, 200
