@@ -137,7 +137,7 @@ class Notification(db.Model, SerializerMixin):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     type = db.Column(db.String(255))  # New field for notification type
     title = db.Column(db.String(255))  # New field for job title or main info
-    details = db.Column(db.String(500))  # Detailed message or description
+    message = db.Column(db.String(500))  # Detailed message or description
     is_read = db.Column(db.Boolean, default=False)
 
     user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
