@@ -29,7 +29,7 @@ CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
 BUSINESS_SHORT_CODE = '174379'
 LIPA_NA_MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Your passkey
-CALLBACK_URL = 'https://job-demo-client.vercel.app/'
+CALLBACK_URL = 'https://test-server-6mxa.onrender.com/stk-callback'
 
 def get_access_token():
     api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
@@ -56,7 +56,7 @@ def stk_push(phone_number, amount=1):
         'PartyB': BUSINESS_SHORT_CODE,
         'PhoneNumber': phone_number,  # Employer's phone number
         'CallBackURL': CALLBACK_URL,
-        'AccountReference': 'EmployerVerification',
+        'AccountReference': 'UncleMaconnectionLTD',
         'TransactionDesc': 'Employer Verification Payment'
     }
 
@@ -993,10 +993,14 @@ api.add_resource(STKPushResource, '/stk-push')
 class STKCallbackResource(Resource):
     def post(self):
         data = request.get_json()
+        # Ensure you use the correct indexes to access phone number and other details based on the actual M-Pesa callback structure.
         phone_number = data['Body']['stkCallback']['CallbackMetadata']['Item'][4]['Value']
 
         employer = Employer.query.filter_by(phone_number=phone_number).first()
         if employer:
+            # Logic to check if the payment was successful and the amount is correct
+            # should be implemented here, based on the actual M-Pesa callback structure.
+            # Assuming you have verified the payment was successful:
             employer.verified = True
             db.session.commit()
             return {'status': 'success', 'message': 'Employer verified successfully.'}
@@ -1004,16 +1008,6 @@ class STKCallbackResource(Resource):
             return {'status': 'failed', 'message': 'Employer not found.'}, 404
 
 api.add_resource(STKCallbackResource, '/stk-callback')
-
-class PaymentStatusResource(Resource):
-    def get(self, employer_id):
-        employer = Employer.query.get(employer_id)
-        if employer:
-            return {'verified': employer.verified}
-        else:
-            return {'status': 'failed', 'message': 'Employer not found.'}, 404
-
-api.add_resource(PaymentStatusResource, '/payment-status/<int:employer_id>')
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
