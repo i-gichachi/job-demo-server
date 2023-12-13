@@ -29,7 +29,7 @@ CONSUMER_KEY = 'ksx4CGm3sjJFBVoWbEySqiuTAkjA1nr8'
 CONSUMER_SECRET = 'JPplKP1go79NifUZ'
 BUSINESS_SHORT_CODE = '174379'
 LIPA_NA_MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Your passkey
-CALLBACK_URL = 'https://mydomain.com/path'
+CALLBACK_URL = 'https://job-demo-client.vercel.app/'
 
 def get_access_token():
     api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
