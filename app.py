@@ -787,7 +787,6 @@ class ContactJobseekerResource(Resource):
             sender_id=current_user_id,
             receiver_id=jobseeker_id,
             message=contact_message,
-            timestamp=datetime.utcnow()
         )
 
         # Add the contact request to the database
