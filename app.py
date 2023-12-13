@@ -793,10 +793,10 @@ class ContactJobseekerResource(Resource):
         db.session.add(contact_request)
 
         # Define the title and message for the notification
-        notification_title = "Contact Request"
-        notification_message = f"You have a new contact request from {company_name}."
+        notification_title = f"Message from {company_name}"
+        notification_message = f"{company_name} sent you a message: '{contact_message}'"
 
-        # Create a notification for the jobseeker including the employer's company name
+        # Create a notification for the jobseeker including the employer's company name and message
         notification = Notification(
             user_id=jobseeker_id,
             title=notification_title,
