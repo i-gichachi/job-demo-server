@@ -996,7 +996,7 @@ class STKCallbackResource(Resource):
         # Ensure you use the correct indexes to access phone number and other details based on the actual M-Pesa callback structure.
         phone_number = data['Body']['stkCallback']['CallbackMetadata']['Item'][4]['Value']
 
-        employer = Employer.query.filter_by(phone_number=phone_number).first()
+        employer = Employer.query.filter_by(phone_number=str(phone_number)).first()
         if employer:
             # Logic to check if the payment was successful and the amount is correct
             # should be implemented here, based on the actual M-Pesa callback structure.
